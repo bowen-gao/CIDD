@@ -138,45 +138,93 @@ except ImportError:
     HAS_OPENAI = False
 
 
-def send_request(context: List[dict], message: str, temperature: float = 0.7) -> Optional[str]:
+def send_request(context: List[dict], message: str, temperature: float = 0.7, n: int = 1) -> Optional[str]:
     """
-    Send a request to OpenAI API with proper error handling.
+    Send a request to LLM API with proper error handling.
+    
+    Supports two modes:
+    1. Azure OpenAI (Default): Set AZURE_OPENAI_API_KEY, AZURE_OPENAI_URL
+    2. DeepSeek (Volcengine Ark): Set VOLCENGINE_ARK_API_KEY (and optionally VOLCENGINE_MODEL)
 
     Args:
         context: List of message dictionaries for conversation context
         message: The message to send
         temperature: Temperature parameter for response generation
+        n: Number of completions to generate
 
     Returns:
         Response content from the API, or None if failed
     """
-    if not HAS_OPENAI:
-        raise ImportError("OpenAI package not available")
-
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set")
-
-    base_url = os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1")
-    model = os.environ.get("OPENAI_MODEL", "gpt-4")
+    context.append({"role": "user", "content": message})
 
     try:
-        client = OpenAI(api_key=api_key, base_url=base_url)
+        # Mode 1: Azure OpenAI (Default, using requests)
+        if os.environ.get("AZURE_OPENAI_API_KEY"):
+            api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+            url = os.environ.get("AZURE_OPENAI_URL")
+            
+            if not url:
+                raise ValueError("AZURE_OPENAI_URL must be set")
+            
+            headers = {
+                'api-key': api_key,
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {"messages": context, "n": n, "temperature": temperature}
+            
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=180)
+            except:
+                return None
+            
+            if response.status_code == 200:
+                response_data = response.json()
+                content = response_data['choices'][0]['message']['content']
+                context.append({"role": "assistant", "content": content})
+                print(content)
+                
+                if "usage" in response_data:
+                    usage = response_data["usage"]
+                    prompt_tokens = usage.get("prompt_tokens", 0)
+                    completion_tokens = usage.get("completion_tokens", 0)
+                    total_tokens = usage.get("total_tokens", 0)
+                    print(f"Tokens used — prompt: {prompt_tokens}, completion: {completion_tokens}, total: {total_tokens}")
+                else:
+                    print("Token usage info not available.")
+                
+                return content
+            else:
+                print(response.text)
+                print(message)
+                return None
 
-        context.append({"role": "user", "content": message})
+        # Mode 2: DeepSeek via Volcengine Ark
+        elif os.environ.get("VOLCENGINE_ARK_API_KEY"):
+            if not HAS_VOLCENGINE:
+                raise ImportError("volcenginesdkarkruntime package not available. Install with: pip install volcengine-python-sdk[ark]")
+            
+            api_key = os.environ.get("VOLCENGINE_ARK_API_KEY")
+            model = os.environ.get("VOLCENGINE_MODEL", "deepseek-v3-241226")
+            
+            client = Ark(api_key=api_key)
+            
+            response = client.chat.completions.create(
+                model=model,
+                messages=context,
+                temperature=temperature,
+                timeout=180
+            )
+            
+            content = response.choices[0].message.content
+            if content:
+                context.append({"role": "assistant", "content": content})
+                print(content)
+                return content
+            return None
 
-        response = client.chat.completions.create(
-            model=model,
-            messages=context,
-            temperature=temperature,
-            timeout=180
-        )
-
-        content = response.choices[0].message.content
-        if content:
-            context.append({"role": "assistant", "content": content})
-            return content
-        return None
+        else:
+            raise ValueError("No API key found. Set AZURE_OPENAI_API_KEY or VOLCENGINE_ARK_API_KEY")
 
     except Exception as e:
         print(f"API request failed: {e}")
