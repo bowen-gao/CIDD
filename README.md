@@ -3,6 +3,12 @@
 [![NeurIPS 2025](https://img.shields.io/badge/NeurIPS-2025-blue.svg)](https://openreview.net/pdf?id=7k7cubl1iL)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
+This repository is for our paper "CIDD: Collaborative Intelligence for Structure-Based Drug Design Empowered by LLMs" published at NeurIPS 2025.
+
+<p align="center">
+  <img src="figs/cidd_main.png" alt="CIDD main figure" width="700" />
+</p>
+
 [**Paper**](https://openreview.net/pdf?id=7k7cubl1iL)
 
 > **⚠️ UNDER CONSTRUCTION:** This repository is currently still under construction. Updates will be provided soon.
