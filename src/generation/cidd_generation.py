@@ -24,10 +24,43 @@ sys.path.append(parent_dir)
 
 from generation.vina_eval import vina_dock_crossdocked as vina_dock_custom
 from generation.preprocess import load_sdf_and_add_polar_hs
-from generation.plip_test import generate_interaction_txt
 from generation.get_fragment import frag_mol_brics
 from utils.unimap_ret import ret_fragments
 from agent_utils import Agent, Part
+
+
+from plip.exchange.report import BindingSiteReport
+from plip.structure.preparation import PDBComplex
+
+
+def generate_interaction_txt(protein_pdb_path):
+
+
+    # Initialize PLIP analysis
+    my_plip = PDBComplex()
+
+    # Load the protein PDB file
+    #print("555", protein_pdb_path)
+    my_plip.load_pdb(protein_pdb_path)
+
+
+    # Perform the analysis
+    my_plip.analyze()
+
+    # Generate and print the report
+    #print("666", my_plip.interaction_sets)
+    res = {}
+    for key in sorted(my_plip.interaction_sets):
+        binding_site = my_plip.interaction_sets[key]
+        report = BindingSiteReport(binding_site)
+        report_txt = report.generate_txt()
+        
+        res[key] = ";".join(report_txt)
+    
+    # convert to plain text
+
+   
+    return res
 
 try:
     from volcenginesdkarkruntime import Ark
